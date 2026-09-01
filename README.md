@@ -194,13 +194,13 @@ stay readable when GitHub scales them to the container width.
 
 **ColorChecker** — the CCM recalibration fixes the oversaturated/magenta reds:
 
-![ColorChecker A/B](results/ab_compare/ColorChecker.jpg)
+![ColorChecker A/B](https://cdn.jsdelivr.net/gh/lloverya/infinite-isp-optimization@main/results/ab_compare/ColorChecker.jpg)
 
 **Indoor1**:
 
-![Indoor1 A/B](results/ab_compare/Indoor1.jpg)
+![Indoor1 A/B](https://cdn.jsdelivr.net/gh/lloverya/infinite-isp-optimization@main/results/ab_compare/Indoor1.jpg)
 
 **CCM × CSE-saturation ablation** — the 2×2 matrix showing that the calibrated
 CCM alone beats the original CCM at *any* saturation setting:
 
-![CCM x CSE ablation](results/ccm_x_cse_ablation/ColorChecker.jpg)
+![CCM x CSE ablation](https://cdn.jsdelivr.net/gh/lloverya/infinite-isp-optimization@main/results/ccm_x_cse_ablation/ColorChecker.jpg)
