@@ -128,68 +128,38 @@ def baseline_path(tag, name):
         raise RuntimeError("baseline missing: %s" % p)
     return p
 
-def draw_badge(img, x, y, text, font, pad_h=18, pad_v=12, fill=(25, 25, 25), alpha=200):
-    """在 RGBA 图 img 上叠加半透明圆角徽标：白字实心、背景半透明可透出画面。"""
-    dr = ImageDraw.Draw(img)
+def draw_badge(dr, x, y, text, font, pad_h=13, pad_v=8):
     lw = dr.textlength(text, font=font)
-    bw = int(lw) + pad_h * 2
-    bh = int(font.size * 1.3) + pad_v * 2
-    overlay = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    od.rounded_rectangle([0, 0, bw, bh], radius=14, fill=fill + (alpha,))
-    od.text((pad_h, pad_v), text, fill=(255, 255, 255, 255), font=font)
-    img.alpha_composite(overlay, (int(x), int(y)))
+    dr.rounded_rectangle([x, y, x + lw + pad_h * 2, y + int(font.size * 1.3) + pad_v * 2],
+                         radius=10, fill=(25, 25, 25))
+    dr.text((x + pad_h, y + pad_v), text, fill=(255, 255, 255), font=font)
 
-def make_matrix(name, panels, out_path, target_w=2568):
+def make_matrix(name, panels, out_path):
     """panels: [(img, label), ...] 顺序 TL, TR, BL, BR。
 
-    ΔE 先在原尺寸面板上计算（网格间距 218/207 按 2592x1536 标定），再整体等比
-    缩小画布到约 target_w；文字按 GitHub 内联显示宽度(~950px)反算到约 20-30px
-    有效字号。时间徽标与红色 ΔE 徽标在面板左上角**并排**（不叠放），背景半透明，
-    避免遮挡图像内容。"""
+    全分辨率画布（面板不缩放），小字号——还原建仓库前的最初渲染样式。"""
     h, w = panels[0][0].shape[:2]
-    # 1) 渲染域 ΔE（原尺寸，TL 面板定位网格，其余面板同锚点采样）
-    tl_rgb = cv2.cvtColor(panels[0][0], cv2.COLOR_BGR2RGB)
-    _, anchor = find_grid(tl_rgb)
-    des = [grid_de(cv2.cvtColor(p, cv2.COLOR_BGR2RGB), anchor[0], anchor[1])[0]
-           for p, _ in panels] if anchor else []
-    if des:
-        print("    锚点=%s  面板 ΔE = %s" % (anchor, [round(x, 1) for x in des]))
-    # 2) 等比缩小面板
-    gap = 8
-    scale = (target_w - gap) / (2.0 * w)
-    nw, nh = int(w * scale), int(h * scale)
-    panels = [(cv2.resize(p, (nw, nh), interpolation=cv2.INTER_AREA), l) for p, l in panels]
-    band = 170
-    cw = nw * 2 + gap
-    ch = band + nh * 2 + gap
+    gap, band = 8, 78
+    cw = w * 2 + gap
+    ch = band + h * 2 + gap
     canvas = np.full((ch, cw, 3), 245, dtype=np.uint8)
-    pos = [(0, band), (nw + gap, band), (0, band + nh + gap), (nw + gap, band + nh + gap)]
+    pos = [(0, band), (w + gap, band), (0, band + h + gap), (w + gap, band + h + gap)]
     for (panel, _label), (px, py) in zip(panels, pos):
-        canvas[py:py + nh, px:px + nw] = panel
-    # 3) 叠加标注
-    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)).convert("RGBA")
+        canvas[py:py + h, px:px + w] = panel
+    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
     dr = ImageDraw.Draw(img)
-    f_title = ImageFont.truetype(FONT, 80)
-    f_sub = ImageFont.truetype(FONT, 56)
-    f_badge = ImageFont.truetype(FONT, 58)
-    f_de = ImageFont.truetype(FONT, 52)
+    f_title = ImageFont.truetype(FONT, 27)
+    f_sub = ImageFont.truetype(FONT, 19)
+    f_badge = ImageFont.truetype(FONT, 24)
     title = "AWB = PCA  |  %s  |  CCM x CSE saturation" % name
     tw = dr.textlength(title, font=f_title)
-    dr.text(((cw - tw) / 2, 12), title, fill=(20, 20, 20, 255), font=f_title)
+    dr.text(((cw - tw) / 2, 8), title, fill=(20, 20, 20), font=f_title)
     # 列头：saturation 1.5 | 1.0（行信息由每个面板的徽标承载）
-    for cx, t in ((nw / 2, "CSE sat 1.5"), (nw + gap + nw / 2, "CSE sat 1.0")):
+    for cx, t in ((w / 2, "CSE sat 1.5"), (w + gap + w / 2, "CSE sat 1.0")):
         wt = dr.textlength(t, font=f_sub)
-        dr.text((cx - wt / 2, 98), t, fill=(90, 90, 90, 255), font=f_sub)
-    # 时间徽标与 ΔE 徽标并排（同一行，不上下叠放）
-    pad_h = 18
+        dr.text((cx - wt / 2, 44), t, fill=(90, 90, 90), font=f_sub)
     for (panel, label), (px, py) in zip(panels, pos):
-        draw_badge(img, px + 20, py + 16, label, f_badge, pad_h=pad_h)
-    for (panel, label), (px, py), de in zip(panels, pos, des):
-        twb = dr.textlength(label, font=f_badge)
-        draw_badge(img, px + 20 + int(twb) + 2 * pad_h + 8, py + 16,
-                   "ΔE mean %4.1f" % de, f_de, pad_h=pad_h, fill=(180, 30, 30))
-    img = img.convert("RGB")
+        draw_badge(dr, px + 14, py + 14, label, f_badge, pad_h=11, pad_v=6)
     img.save(out_path)
     print("  保存矩阵图:", out_path)
 
