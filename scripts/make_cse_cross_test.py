@@ -134,42 +134,51 @@ def draw_badge(dr, x, y, text, font, pad_h=30, pad_v=20, fill=(25, 25, 25)):
                          radius=20, fill=fill)
     dr.text((x + pad_h, y + pad_v), text, fill=(255, 255, 255), font=font)
 
-def make_matrix(name, panels, out_path):
-    """panels: [(img, label), ...] 顺序 TL, TR, BL, BR"""
+def make_matrix(name, panels, out_path, target_w=2568):
+    """panels: [(img, label), ...] 顺序 TL, TR, BL, BR。
+
+    ΔE 先在原尺寸面板上计算（网格间距 218/207 按 2592x1536 标定），再整体等比
+    缩小画布到约 target_w；文字按 GitHub 内联显示宽度(~950px)反算放大，保证
+    内联显示时可读。时间徽标在面板左上角，红色 ΔE 徽标在其正下方。"""
     h, w = panels[0][0].shape[:2]
-    gap, band = 8, 280
-    cw = w * 2 + gap
-    ch = band + h * 2 + gap
-    canvas = np.full((ch, cw, 3), 245, dtype=np.uint8)
-    pos = [(0, band), (w + gap, band), (0, band + h + gap), (w + gap, band + h + gap)]
-    for (panel, _label), (px, py) in zip(panels, pos):
-        canvas[py:py + h, px:px + w] = panel
-    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
-    dr = ImageDraw.Draw(img)
-    f_title = ImageFont.truetype(FONT, 100)
-    f_sub = ImageFont.truetype(FONT, 68)
-    f_badge = ImageFont.truetype(FONT, 88)
-    title = "AWB = PCA  |  %s  |  CCM x CSE saturation" % name
-    tw = dr.textlength(title, font=f_title)
-    dr.text(((cw - tw) / 2, 20), title, fill=(20, 20, 20), font=f_title)
-    # 列头：saturation 1.5 | 1.0（行信息由每个面板的徽标承载）
-    for cx, t in ((w / 2, "CSE sat 1.5"), (w + gap + w / 2, "CSE sat 1.0")):
-        wt = dr.textlength(t, font=f_sub)
-        dr.text((cx - wt / 2, 168), t, fill=(90, 90, 90), font=f_sub)
-    # 渲染域 ΔE：在 TL 面板上定位 ColorChecker 网格，其余面板同锚点采样（每面板一个 ΔE）
+    # 1) 渲染域 ΔE（原尺寸，TL 面板定位网格，其余面板同锚点采样）
     tl_rgb = cv2.cvtColor(panels[0][0], cv2.COLOR_BGR2RGB)
     _, anchor = find_grid(tl_rgb)
     des = [grid_de(cv2.cvtColor(p, cv2.COLOR_BGR2RGB), anchor[0], anchor[1])[0]
            for p, _ in panels] if anchor else []
     if des:
         print("    锚点=%s  面板 ΔE = %s" % (anchor, [round(x, 1) for x in des]))
+    # 2) 等比缩小面板
+    gap = 8
+    scale = (target_w - gap) / (2.0 * w)
+    nw, nh = int(w * scale), int(h * scale)
+    panels = [(cv2.resize(p, (nw, nh), interpolation=cv2.INTER_AREA), l) for p, l in panels]
+    band = 220
+    cw = nw * 2 + gap
+    ch = band + nh * 2 + gap
+    canvas = np.full((ch, cw, 3), 245, dtype=np.uint8)
+    pos = [(0, band), (nw + gap, band), (0, band + nh + gap), (nw + gap, band + nh + gap)]
+    for (panel, _label), (px, py) in zip(panels, pos):
+        canvas[py:py + nh, px:px + nw] = panel
+    # 3) 叠加标注
+    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+    dr = ImageDraw.Draw(img)
+    f_title = ImageFont.truetype(FONT, 104)
+    f_sub = ImageFont.truetype(FONT, 68)
+    f_badge = ImageFont.truetype(FONT, 84)
+    title = "AWB = PCA  |  %s  |  CCM x CSE saturation" % name
+    tw = dr.textlength(title, font=f_title)
+    dr.text(((cw - tw) / 2, 16), title, fill=(20, 20, 20), font=f_title)
+    # 列头：saturation 1.5 | 1.0（行信息由每个面板的徽标承载）
+    for cx, t in ((nw / 2, "CSE sat 1.5"), (nw + gap + nw / 2, "CSE sat 1.0")):
+        wt = dr.textlength(t, font=f_sub)
+        dr.text((cx - wt / 2, 128), t, fill=(90, 90, 90), font=f_sub)
+    bh = int(f_badge.size * 1.3) + 14 * 2          # 徽标高度
     for (panel, label), (px, py) in zip(panels, pos):
-        draw_badge(dr, px + 28, py + 28, label, f_badge, pad_h=26, pad_v=18)
+        draw_badge(dr, px + 20, py + 20, label, f_badge, pad_h=24, pad_v=14)
     for (panel, label), (px, py), de in zip(panels, pos, des):
-        de_txt = "ΔE mean %4.1f" % de
-        dw = dr.textlength(de_txt, font=f_badge)
-        draw_badge(dr, px + w - 28 - dw - 2 * 26, py + 28, de_txt, f_badge,
-                   pad_h=26, pad_v=18, fill=(180, 30, 30))
+        draw_badge(dr, px + 20, py + 20 + bh + 10, "ΔE mean %4.1f" % de, f_badge,
+                   pad_h=24, pad_v=14, fill=(180, 30, 30))
     img.save(out_path)
     print("  保存矩阵图:", out_path)
 

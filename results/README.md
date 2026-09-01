@@ -1,7 +1,8 @@
 # Results — rendered comparisons
 
-Full-resolution renders (JPEG, 5192 px wide; click to zoom), produced by
-running each pipeline independently on the same RAW (2592×1536, 12-bit RGGB).
+Rendered comparisons (JPEG, 2568 px wide), produced by running each pipeline
+independently on the same RAW (2592×1536, 12-bit RGGB). Labels are sized so they
+remain readable when GitHub scales the images to the container width.
 
 | Folder | Contents | What to look for |
 |---|---|---|

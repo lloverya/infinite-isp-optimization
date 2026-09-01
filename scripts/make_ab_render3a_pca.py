@@ -89,26 +89,34 @@ def draw_badge(dr, x, y, text, font, pad_h=34, pad_v=22):
                          radius=22, fill=(25, 25, 25))
     dr.text((x + pad_h, y + pad_v), text, fill=(255, 255, 255), font=font)
 
-def make_cmp(name, left, right, tE, tD, psnr_v, out_path):
-    """左=原ISP(E)，右=优化ISP(D)；顶栏标题+居中PSNR；两图左上角各标处理时间。"""
+def make_cmp(name, left, right, tE, tD, psnr_v, out_path, target_w=2568):
+    """左=原ISP(E)，右=优化ISP(D)；顶栏标题+居中PSNR；两图左上角各标处理时间。
+
+    输出画布宽度约 target_w：面板先等比缩小，文字按 GitHub 内联显示宽度(~950px)
+    反算放大，保证内联显示时标注可读(~35-40px)。"""
     h, w = left.shape[:2]
-    band, gap = 280, 8
-    canvas = np.full((band + h, w * 2 + gap, 3), 245, dtype=np.uint8)
-    canvas[band:, :w] = left
-    canvas[band:, w + gap:] = right
+    gap = 8
+    scale = (target_w - gap) / (2.0 * w)
+    nw, nh = int(w * scale), int(h * scale)
+    left = cv2.resize(left, (nw, nh), interpolation=cv2.INTER_AREA)
+    right = cv2.resize(right, (nw, nh), interpolation=cv2.INTER_AREA)
+    band = 250
+    canvas = np.full((band + nh, nw * 2 + gap, 3), 245, dtype=np.uint8)
+    canvas[band:, :nw] = left
+    canvas[band:, nw + gap:] = right
     img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
     dr = ImageDraw.Draw(img)
-    f_title = ImageFont.truetype(FONT, 110)
-    f_psnr = ImageFont.truetype(FONT, 100)
+    f_title = ImageFont.truetype(FONT, 116)
+    f_psnr = ImageFont.truetype(FONT, 104)
     f_badge = ImageFont.truetype(FONT, 96)
     title = "AWB = PCA  |  %s" % name
     tw = dr.textlength(title, font=f_title)
-    dr.text(((w * 2 + gap - tw) / 2, 20), title, fill=(20, 20, 20), font=f_title)
+    dr.text(((nw * 2 + gap - tw) / 2, 18), title, fill=(20, 20, 20), font=f_title)
     ptxt = "PSNR = ∞" if psnr_v == float("inf") else "PSNR = %.2f dB" % psnr_v
     pw = dr.textlength(ptxt, font=f_psnr)
-    dr.text(((w * 2 + gap - pw) / 2, 158), ptxt, fill=(200, 30, 30), font=f_psnr)
-    draw_badge(dr, 28, band + 26, "Original ISP   %.2f s" % tE, f_badge)
-    draw_badge(dr, w + gap + 28, band + 26, "Optimized ISP  %.2f s" % tD, f_badge)
+    dr.text(((nw * 2 + gap - pw) / 2, 138), ptxt, fill=(200, 30, 30), font=f_psnr)
+    draw_badge(dr, 28, band + 24, "Original ISP   %.2f s" % tE, f_badge)
+    draw_badge(dr, nw + gap + 28, band + 24, "Optimized ISP  %.2f s" % tD, f_badge)
     img.save(out_path)
     print("  保存对比图:", out_path)
 
