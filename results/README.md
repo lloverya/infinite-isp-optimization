@@ -6,7 +6,7 @@ running each pipeline independently on the same RAW (2592×1536, 12-bit RGGB).
 | Folder | Contents | What to look for |
 |---|---|---|
 | `ab_compare/` | `ColorChecker/Indoor1/Outdoor1-4` — original-vs-optimized side-by-side | Top-center PSNR; the optimized output has correct colors (no magenta reds, no clipped pure-color regions) |
-| `ccm_x_cse_ablation/` | 2×2 ablation matrices: CCM (original/optimized) × CSE saturation (1.5/1.0) | The optimized CCM is better at every saturation setting; the original CCM at sat 1.0 still oversaturates |
+| `ccm_x_cse_ablation/` | 2×2 ablation matrices: CCM (original/optimized) × CSE saturation (1.5/1.0), each panel tagged with rendering-domain ΔE (mean over 24 ColorChecker patches, same grid anchor) | On the well-lit ColorChecker scene the optimized CCM has lower ΔE at every saturation (57→25 at sat 1.0) and oversaturates less; on Indoor1 the card is dimly lit so ΔE is lighting-dominated |
 
 ## A/B configuration
 

@@ -23,6 +23,41 @@ FONT = r"C:\Windows\Fonts\arialbd.ttf"
 if not os.path.exists(FONT):
     FONT = r"C:\Windows\Fonts\msyhbd.ttc"
 
+# X-Rite ColorChecker Classic 24 参考 sRGB（脚本自包含，与 detect_colorchecker 同表）
+X_RITE = np.array([
+    [115, 82, 68], [194, 150, 130], [98, 122, 157], [87, 108, 67],
+    [133, 128, 177], [103, 189, 170], [214, 126, 44], [80, 91, 166],
+    [193, 90, 99], [94, 60, 108], [157, 188, 26], [224, 163, 46],
+    [56, 61, 150], [70, 148, 73], [175, 54, 60], [231, 199, 31],
+    [187, 86, 149], [8, 133, 161], [243, 243, 242], [200, 200, 200],
+    [160, 160, 160], [122, 122, 121], [85, 85, 85], [52, 52, 52],
+], dtype=float)
+DXDY = (218, 207)  # 模板扫描网格间隔 (validate_ccm_raw 标定)
+
+def grid_de(img, ax, ay, dx=DXDY[0], dy=DXDY[1], half=28):
+    """在渲染图 img 上以 (ax,ay) 为锚点采样 24 块，返回 (平均 ΔE, 逐块 ΔE)。"""
+    de = np.zeros(24)
+    for r in range(4):
+        for c in range(6):
+            cx, cy = ax + c * dx, ay + r * dy
+            y1, y2 = max(0, int(cy) - half), min(img.shape[0], int(cy) + half)
+            x1, x2 = max(0, int(cx) - half), min(img.shape[1], int(cx) + half)
+            if y2 <= y1 or x2 <= x1:
+                return 1e9, None
+            obs = img[y1:y2, x1:x2].mean(axis=(0, 1))
+            de[r * 6 + c] = np.linalg.norm(obs - X_RITE[r * 6 + c])
+    return de.mean(), de
+
+def find_grid(img, dx=DXDY[0], dy=DXDY[1]):
+    """模板扫描定位 4x6 ColorChecker 网格，返回 (最小平均ΔE, 锚点)。"""
+    best = (1e9, None)
+    for ay in range(150, 1200, 30):
+        for ax in range(200, 1900, 30):
+            score, _ = grid_de(img, ax, ay, dx, dy)
+            if score < best[0]:
+                best = (score, (ax, ay))
+    return best
+
 SCENES = [
     ("ColorChecker", "ColorChecker_2592x1536_12bits_RGGB.raw", "./in_frames/normal",
      "Out_ColorChecker_2592x1536_12bits_RGGB",
@@ -93,16 +128,16 @@ def baseline_path(tag, name):
         raise RuntimeError("baseline missing: %s" % p)
     return p
 
-def draw_badge(dr, x, y, text, font, pad_h=13, pad_v=8):
+def draw_badge(dr, x, y, text, font, pad_h=30, pad_v=20, fill=(25, 25, 25)):
     lw = dr.textlength(text, font=font)
     dr.rounded_rectangle([x, y, x + lw + pad_h * 2, y + int(font.size * 1.3) + pad_v * 2],
-                         radius=10, fill=(25, 25, 25))
+                         radius=20, fill=fill)
     dr.text((x + pad_h, y + pad_v), text, fill=(255, 255, 255), font=font)
 
 def make_matrix(name, panels, out_path):
     """panels: [(img, label), ...] 顺序 TL, TR, BL, BR"""
     h, w = panels[0][0].shape[:2]
-    gap, band = 8, 78
+    gap, band = 8, 280
     cw = w * 2 + gap
     ch = band + h * 2 + gap
     canvas = np.full((ch, cw, 3), 245, dtype=np.uint8)
@@ -111,18 +146,30 @@ def make_matrix(name, panels, out_path):
         canvas[py:py + h, px:px + w] = panel
     img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
     dr = ImageDraw.Draw(img)
-    f_title = ImageFont.truetype(FONT, 27)
-    f_sub = ImageFont.truetype(FONT, 19)
-    f_badge = ImageFont.truetype(FONT, 24)
+    f_title = ImageFont.truetype(FONT, 100)
+    f_sub = ImageFont.truetype(FONT, 68)
+    f_badge = ImageFont.truetype(FONT, 88)
     title = "AWB = PCA  |  %s  |  CCM x CSE saturation" % name
     tw = dr.textlength(title, font=f_title)
-    dr.text(((cw - tw) / 2, 8), title, fill=(20, 20, 20), font=f_title)
+    dr.text(((cw - tw) / 2, 20), title, fill=(20, 20, 20), font=f_title)
     # 列头：saturation 1.5 | 1.0（行信息由每个面板的徽标承载）
     for cx, t in ((w / 2, "CSE sat 1.5"), (w + gap + w / 2, "CSE sat 1.0")):
         wt = dr.textlength(t, font=f_sub)
-        dr.text((cx - wt / 2, 44), t, fill=(90, 90, 90), font=f_sub)
+        dr.text((cx - wt / 2, 168), t, fill=(90, 90, 90), font=f_sub)
+    # 渲染域 ΔE：在 TL 面板上定位 ColorChecker 网格，其余面板同锚点采样（每面板一个 ΔE）
+    tl_rgb = cv2.cvtColor(panels[0][0], cv2.COLOR_BGR2RGB)
+    _, anchor = find_grid(tl_rgb)
+    des = [grid_de(cv2.cvtColor(p, cv2.COLOR_BGR2RGB), anchor[0], anchor[1])[0]
+           for p, _ in panels] if anchor else []
+    if des:
+        print("    锚点=%s  面板 ΔE = %s" % (anchor, [round(x, 1) for x in des]))
     for (panel, label), (px, py) in zip(panels, pos):
-        draw_badge(dr, px + 14, py + 14, label, f_badge, pad_h=11, pad_v=6)
+        draw_badge(dr, px + 28, py + 28, label, f_badge, pad_h=26, pad_v=18)
+    for (panel, label), (px, py), de in zip(panels, pos, des):
+        de_txt = "ΔE mean %4.1f" % de
+        dw = dr.textlength(de_txt, font=f_badge)
+        draw_badge(dr, px + w - 28 - dw - 2 * 26, py + 28, de_txt, f_badge,
+                   pad_h=26, pad_v=18, fill=(180, 30, 30))
     img.save(out_path)
     print("  保存矩阵图:", out_path)
 

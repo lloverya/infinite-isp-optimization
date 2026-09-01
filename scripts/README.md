@@ -11,7 +11,7 @@ with the patches + CCM config applied) before running.
 | Script | Produces |
 |---|---|
 | `make_ab_render3a_pca.py` | `results/ab_compare/*` — A/B comparison for the 6 built-in scenes (ColorChecker, Indoor1, Outdoor1–4) |
-| `make_cse_cross_test.py` | `results/ccm_x_cse_ablation/*` — 2×2 ablation: CCM (original/optimized) × CSE saturation (1.5/1.0) |
+| `make_cse_cross_test.py` | `results/ccm_x_cse_ablation/*` — 2×2 ablation: CCM (original/optimized) × CSE saturation (1.5/1.0), each panel tagged with rendering-domain ΔE (locates the ColorChecker grid on the top-left panel, samples all 24 patches on the same anchor) |
 
 ## Method / verification scripts
 

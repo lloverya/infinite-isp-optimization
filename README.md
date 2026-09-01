@@ -16,6 +16,11 @@ The two directions are independent: **A is lossless** (bit-identical, verifiable
 > exact baseline, the list of modified files, and the attribution/licensing notes.
 > Upstream copyright: `Infinite-ISP, Copyright 2024, 10xEngineers` (see [NOTICE](NOTICE)).
 
+> **Disclaimer / 声明** — This project is the author's learning work on ISP
+> (image signal processing). If there are any errors, or any infringement of
+> existing work, it is unintentional — please point them out and it will be
+> corrected. 本项目为作者为学习ISP（图像信号处理）的产物，如有错误或侵权，敬请指正！
+
 ---
 
 ## A. Denoise acceleration — 2.2× with bit-identical output
