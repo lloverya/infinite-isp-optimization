@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ISP run artifacts
+in_frames/
+out_frames/
+*.raw
+*.png.bak
+*.DNG
+*.dng
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Large local results not meant for the repo (see results/ for web-sized copies)
+result_full/

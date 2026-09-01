@@ -1,0 +1,13 @@
+# Base dependencies of Infinite-ISP (upstream, unchanged)
+matplotlib==3.5.1
+numpy==1.21.5
+PyYAML==6.0
+rawpy==0.17.3
+scipy==1.7.3
+tqdm==4.64.1
+
+# NEW dependency introduced by the denoise acceleration (modules/noise_reduction_2d
+# and modules/bayer_noise_reduction now use cv2.boxFilter). The acceleration is
+# bit-identical, but the upstream project ships no OpenCV — install opencv-python
+# to run the patched modules.
+opencv-python>=4.5

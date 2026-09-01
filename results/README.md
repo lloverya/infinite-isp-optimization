@@ -1,0 +1,15 @@
+# Results — rendered comparisons
+
+Full-resolution renders (JPEG, 5192 px wide; click to zoom), produced by
+running each pipeline independently on the same RAW (2592×1536, 12-bit RGGB).
+
+| Folder | Contents | What to look for |
+|---|---|---|
+| `ab_compare/` | `ColorChecker/Indoor1/Outdoor1-4` — original-vs-optimized side-by-side | Top-center PSNR; the optimized output has correct colors (no magenta reds, no clipped pure-color regions) |
+| `ccm_x_cse_ablation/` | 2×2 ablation matrices: CCM (original/optimized) × CSE saturation (1.5/1.0) | The optimized CCM is better at every saturation setting; the original CCM at sat 1.0 still oversaturates |
+
+## A/B configuration
+
+`AWB = PCA`, `render_3a = true` (the default 3A loop), built-in test images.
+Badges: left panel `Original ISP <time> s`, right panel `Optimized ISP <time> s`,
+center PSNR = optimized vs original output.

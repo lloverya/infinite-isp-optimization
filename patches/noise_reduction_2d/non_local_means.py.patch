@@ -1,0 +1,48 @@
+--- a/modules/noise_reduction_2d/non_local_means.py+++ b/modules/noise_reduction_2d/non_local_means.py@@ -9,6 +9,7 @@ ------------------------------------------------------------
+ """
+ import numpy as np
++import cv2
+ from tqdm import tqdm
+ 
+ 
+@@ -65,6 +66,11 @@ 
+         if in_image.dtype == "float32":
+             input_image = np.round(255 * input_image).astype(np.uint8)
++        elif in_image.dtype == "uint16":
++            # Defensive branch: normalize uint16 (0-4095) input to uint8 (0-255).
++            # Not hit by the built-in RAW tests (CSC already emits uint8 before NR2D),
++            # included so the module is safe if NR2D ever runs on a raw Bayer buffer.
++            input_image = np.round(input_image / 4095.0 * 255).astype(np.uint8)
+ 
+         # Declaring empty array for output image after denoising
+         denoised_out = np.empty(in_image.shape, dtype=np.uint8)
+@@ -128,18 +134,16 @@ 
+     def apply_mean_filter(self, array, patch_size):
+         """
+-        Applying Mean Filter
++        Applying Mean Filter (accelerated, bit-identical to original)
+         """
+-        padded_array = np.pad(array, patch_size // 2, mode="reflect")
+-        summed_up_arrays = np.zeros([array.shape[0], array.shape[1]])
+-
+-        for i in range(patch_size):
+-            for j in range(patch_size):
+-                summed_up_arrays += np.int32(
+-                    padded_array[i : i + array.shape[0], j : j + array.shape[1], ...]
+-                )
+-
+-        output_mean_filtered = ((summed_up_arrays) / patch_size**2).astype(
+-            array.dtype
+-        )
+-        return output_mean_filtered
++        # Original: reflect-pad, then sum the p*p window in float64 and truncate
++        # /p^2 to int32. cv2.boxFilter(normalize=False) returns the exact integer
++        # window sum in a single C call (identical to the float64 sum), and
++        # S//(p*p) == trunc(S/p^2) for non-negative values, so this is bit-identical.
++        # Note: cv2 BORDER_REFLECT_101 == np.pad 'reflect'; cv2 BORDER_REFLECT is
++        # 'symmetric' (a common trap).
++        p = patch_size
++        S = cv2.boxFilter(array, ddepth=-1, ksize=(p, p),
++                          anchor=(-1, -1), normalize=False,
++                          borderType=cv2.BORDER_REFLECT_101)
++        return (S // (p * p)).astype(array.dtype)
