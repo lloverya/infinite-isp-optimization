@@ -83,40 +83,47 @@ def psnr(a, b):
     mse = np.mean((a - b) ** 2)
     return float("inf") if mse == 0 else 10 * np.log10(255.0 ** 2 / mse)
 
-def draw_badge(dr, x, y, text, font, pad_h=34, pad_v=22):
+def draw_badge(img, x, y, text, font, pad_h=18, pad_v=12, fill=(25, 25, 25), alpha=200):
+    """在 RGBA 图 img 上叠加半透明圆角徽标：白字实心、背景半透明可透出画面。"""
+    dr = ImageDraw.Draw(img)
     lw = dr.textlength(text, font=font)
-    dr.rounded_rectangle([x, y, x + lw + pad_h * 2, y + int(font.size * 1.3) + pad_v * 2],
-                         radius=22, fill=(25, 25, 25))
-    dr.text((x + pad_h, y + pad_v), text, fill=(255, 255, 255), font=font)
+    bw = int(lw) + pad_h * 2
+    bh = int(font.size * 1.3) + pad_v * 2
+    overlay = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    od.rounded_rectangle([0, 0, bw, bh], radius=14, fill=fill + (alpha,))
+    od.text((pad_h, pad_v), text, fill=(255, 255, 255, 255), font=font)
+    img.alpha_composite(overlay, (int(x), int(y)))
 
 def make_cmp(name, left, right, tE, tD, psnr_v, out_path, target_w=2568):
     """左=原ISP(E)，右=优化ISP(D)；顶栏标题+居中PSNR；两图左上角各标处理时间。
 
     输出画布宽度约 target_w：面板先等比缩小，文字按 GitHub 内联显示宽度(~950px)
-    反算放大，保证内联显示时标注可读(~35-40px)。"""
+    反算到约 20-30px 有效字号（可读但不挡画面），徽标半透明。"""
     h, w = left.shape[:2]
     gap = 8
     scale = (target_w - gap) / (2.0 * w)
     nw, nh = int(w * scale), int(h * scale)
     left = cv2.resize(left, (nw, nh), interpolation=cv2.INTER_AREA)
     right = cv2.resize(right, (nw, nh), interpolation=cv2.INTER_AREA)
-    band = 250
+    band = 160
     canvas = np.full((band + nh, nw * 2 + gap, 3), 245, dtype=np.uint8)
     canvas[band:, :nw] = left
     canvas[band:, nw + gap:] = right
-    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)).convert("RGBA")
     dr = ImageDraw.Draw(img)
-    f_title = ImageFont.truetype(FONT, 116)
-    f_psnr = ImageFont.truetype(FONT, 104)
-    f_badge = ImageFont.truetype(FONT, 96)
+    f_title = ImageFont.truetype(FONT, 80)
+    f_psnr = ImageFont.truetype(FONT, 70)
+    f_badge = ImageFont.truetype(FONT, 60)
     title = "AWB = PCA  |  %s" % name
     tw = dr.textlength(title, font=f_title)
-    dr.text(((nw * 2 + gap - tw) / 2, 18), title, fill=(20, 20, 20), font=f_title)
+    dr.text(((nw * 2 + gap - tw) / 2, 12), title, fill=(20, 20, 20, 255), font=f_title)
     ptxt = "PSNR = ∞" if psnr_v == float("inf") else "PSNR = %.2f dB" % psnr_v
     pw = dr.textlength(ptxt, font=f_psnr)
-    dr.text(((nw * 2 + gap - pw) / 2, 138), ptxt, fill=(200, 30, 30), font=f_psnr)
-    draw_badge(dr, 28, band + 24, "Original ISP   %.2f s" % tE, f_badge)
-    draw_badge(dr, nw + gap + 28, band + 24, "Optimized ISP  %.2f s" % tD, f_badge)
+    dr.text(((nw * 2 + gap - pw) / 2, 90), ptxt, fill=(200, 30, 30, 255), font=f_psnr)
+    draw_badge(img, 24, band + 16, "Original ISP   %.2f s" % tE, f_badge)
+    draw_badge(img, nw + gap + 24, band + 16, "Optimized ISP  %.2f s" % tD, f_badge)
+    img = img.convert("RGB")
     img.save(out_path)
     print("  保存对比图:", out_path)
 

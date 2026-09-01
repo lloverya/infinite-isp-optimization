@@ -189,8 +189,9 @@ python scripts/make_cse_cross_test.py    # CCM × CSE 2×2 ablation
 
 Produced by running each pipeline independently on the same RAW (left: original
 ISP, right: optimized ISP; top-center PSNR of the optimized output vs the
-original). The composites are rendered at 2568 px wide with labels sized so they
-stay readable when GitHub scales them to the container width.
+original). The composites are rendered at 2568 px wide with compact semi-transparent
+labels that stay readable when GitHub scales them to the container width,
+without hiding the image content.
 
 **ColorChecker** — the CCM recalibration fixes the oversaturated/magenta reds:
 

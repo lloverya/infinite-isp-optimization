@@ -1,8 +1,9 @@
 # Results — rendered comparisons
 
 Rendered comparisons (JPEG, 2568 px wide), produced by running each pipeline
-independently on the same RAW (2592×1536, 12-bit RGGB). Labels are sized so they
-remain readable when GitHub scales the images to the container width.
+independently on the same RAW (2592×1536, 12-bit RGGB). Labels are compact and
+semi-transparent: readable when GitHub scales the images to the container width,
+without obscuring the image content.
 
 | Folder | Contents | What to look for |
 |---|---|---|
